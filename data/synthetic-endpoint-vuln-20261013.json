@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "collected_at": "2026-10-13T23:00:00Z",
+  "collector": "synthetic-generator",
+  "synthetic": true,
+  "note": "Synthetic data for demonstration. Represents a ~200-employee organization. Not real.",
+  "metrics": {
+    "managed_endpoints": 212,
+    "endpoints_onboarded_edr": 207,
+    "endpoints_missing_edr": 5,
+    "vulnerabilities_critical": 3,
+    "vulnerabilities_high": 27,
+    "vulnerabilities_medium": 118,
+    "critical_vulns_older_than_15_days": 1,
+    "devices_noncompliant": 9,
+    "phishing_reports_last_30_days": 14
+  }
+}
