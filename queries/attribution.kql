@@ -1,0 +1,12 @@
+// 1. Who wrote and who tried to delete: collector vs. human, plus blocked attempts
+StorageBlobLogs
+| where OperationName in ("PutBlob", "DeleteBlob")
+| project TimeGenerated, OperationName, StatusCode, StatusText, AuthenticationType, RequesterObjectId, Uri
+| order by TimeGenerated desc
+
+// 2. The agent's reads (match TimeGenerated and Uri to the Foundry trace's getSnapshot span)
+StorageBlobLogs
+| where OperationName in ("ListBlobs", "GetBlob")
+| where RequesterObjectId startswith "<FOUNDRY-RESOURCE-MI-PREFIX>"
+| project TimeGenerated, OperationName, StatusCode, RequesterObjectId, Uri
+| order by TimeGenerated desc
