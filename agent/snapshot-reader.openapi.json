@@ -1,0 +1,40 @@
+{
+  "openapi": "3.0.1",
+  "info": { "title": "Snapshot Store Reader", "version": "1.1" },
+  "servers": [ { "url": "https://<STORAGE-ACCOUNT>.blob.core.windows.net" } ],
+  "paths": {
+    "/snapshots": {
+      "get": {
+        "operationId": "listSnapshots",
+        "description": "Lists all snapshot files in the snapshots container. Returns XML; blob names are inside <Name> tags.",
+        "parameters": [
+          { "name": "restype", "in": "query", "required": true, "schema": { "type": "string", "enum": ["container"] } },
+          { "name": "comp", "in": "query", "required": true, "schema": { "type": "string", "enum": ["list"] } },
+          { "name": "x-ms-version", "in": "header", "required": true, "schema": { "type": "string", "enum": ["2021-12-02"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "XML list of snapshot files",
+            "content": { "application/xml": { "schema": { "type": "string" } } }
+          }
+        }
+      }
+    },
+    "/snapshots/{blobName}": {
+      "get": {
+        "operationId": "getSnapshot",
+        "description": "Reads one snapshot file by its exact name, as returned by listSnapshots.",
+        "parameters": [
+          { "name": "blobName", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "x-ms-version", "in": "header", "required": true, "schema": { "type": "string", "enum": ["2021-12-02"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot JSON content",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    }
+  }
+}
