@@ -1,0 +1,9 @@
+.env
+*.env
+local.settings.json
+.azure/
+*.pem
+*.pfx
+*.key
+evidence/raw/
+.DS_Store
