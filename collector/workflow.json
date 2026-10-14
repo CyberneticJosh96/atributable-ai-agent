@@ -1,0 +1,128 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "storageAccount": { "type": "String", "defaultValue": "<STORAGE-ACCOUNT>" },
+      "subscriptionId": { "type": "String", "defaultValue": "<SUBSCRIPTION-ID>" }
+    },
+    "triggers": {
+      "Weekly_schedule": {
+        "type": "Recurrence",
+        "recurrence": {
+          "frequency": "Week",
+          "interval": 1,
+          "schedule": { "weekDays": ["Monday"], "hours": ["6"], "minutes": [0] },
+          "timeZone": "Eastern Standard Time"
+        }
+      }
+    },
+    "actions": {
+      "Get_user_count": {
+        "type": "Http",
+        "runAfter": {},
+        "inputs": {
+          "method": "GET",
+          "uri": "https://graph.microsoft.com/v1.0/users/$count",
+          "headers": { "ConsistencyLevel": "eventual" },
+          "authentication": { "type": "ManagedServiceIdentity", "audience": "https://graph.microsoft.com" }
+        }
+      },
+      "Get_guest_count": {
+        "type": "Http",
+        "runAfter": { "Get_user_count": ["Succeeded"] },
+        "inputs": {
+          "method": "GET",
+          "uri": "https://graph.microsoft.com/v1.0/users/$count",
+          "queries": { "$filter": "userType eq 'Guest'" },
+          "headers": { "ConsistencyLevel": "eventual" },
+          "authentication": { "type": "ManagedServiceIdentity", "audience": "https://graph.microsoft.com" }
+        }
+      },
+      "Get_app_registrations": {
+        "type": "Http",
+        "runAfter": { "Get_guest_count": ["Succeeded"] },
+        "inputs": {
+          "method": "GET",
+          "uri": "https://graph.microsoft.com/v1.0/applications",
+          "queries": { "$select": "id,displayName,passwordCredentials", "$top": "999" },
+          "authentication": { "type": "ManagedServiceIdentity", "audience": "https://graph.microsoft.com" }
+        }
+      },
+      "Filter_apps_with_secrets": {
+        "type": "Query",
+        "runAfter": { "Get_app_registrations": ["Succeeded"] },
+        "inputs": {
+          "from": "@body('Get_app_registrations')?['value']",
+          "where": "@greater(length(coalesce(item()?['passwordCredentials'], json('[]'))), 0)"
+        }
+      },
+      "Get_role_assignments": {
+        "type": "Http",
+        "runAfter": { "Filter_apps_with_secrets": ["Succeeded"] },
+        "inputs": {
+          "method": "GET",
+          "uri": "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments",
+          "authentication": { "type": "ManagedServiceIdentity", "audience": "https://graph.microsoft.com" }
+        }
+      },
+      "Filter_global_admins": {
+        "type": "Query",
+        "runAfter": { "Get_role_assignments": ["Succeeded"] },
+        "inputs": {
+          "from": "@body('Get_role_assignments')?['value']",
+          "where": "@equals(item()?['roleDefinitionId'], '62e90394-69f5-4237-9190-012177145e10')"
+        }
+      },
+      "Get_secure_score": {
+        "type": "Http",
+        "runAfter": { "Filter_global_admins": ["Succeeded"] },
+        "inputs": {
+          "method": "GET",
+          "uri": "https://management.azure.com/subscriptions/@{parameters('subscriptionId')}/providers/Microsoft.Security/secureScores/ascScore",
+          "queries": { "api-version": "2020-01-01" },
+          "authentication": { "type": "ManagedServiceIdentity", "audience": "https://management.azure.com/" }
+        }
+      },
+      "Compose_snapshot": {
+        "type": "Compose",
+        "runAfter": { "Get_secure_score": ["Succeeded", "Failed"] },
+        "inputs": {
+          "schema_version": "1.0",
+          "collected_at": "@{utcNow()}",
+          "collector": "la-metrics-collector (system-assigned managed identity)",
+          "synthetic": false,
+          "source_apis": ["Microsoft Graph v1.0", "Azure Resource Manager: Microsoft.Security"],
+          "metrics": {
+            "user_count": "@int(body('Get_user_count'))",
+            "guest_count": "@int(body('Get_guest_count'))",
+            "app_registrations_total": "@length(body('Get_app_registrations')?['value'])",
+            "app_registrations_with_client_secrets": "@length(body('Filter_apps_with_secrets'))",
+            "directory_role_assignments": "@length(body('Get_role_assignments')?['value'])",
+            "global_admin_assignments": "@length(body('Filter_global_admins'))",
+            "secure_score_current": "@body('Get_secure_score')?['properties']?['score']?['current']",
+            "secure_score_max": "@body('Get_secure_score')?['properties']?['score']?['max']",
+            "secure_score_http_status": "@outputs('Get_secure_score')?['statusCode']"
+          }
+        }
+      },
+      "Write_snapshot": {
+        "type": "Http",
+        "runAfter": { "Compose_snapshot": ["Succeeded"] },
+        "inputs": {
+          "method": "PUT",
+          "uri": "https://@{parameters('storageAccount')}.blob.core.windows.net/snapshots/metrics-@{formatDateTime(utcNow(), 'yyyyMMdd-HHmmss')}.json",
+          "headers": {
+            "x-ms-blob-type": "BlockBlob",
+            "x-ms-version": "2021-12-02",
+            "Content-Type": "application/json"
+          },
+          "body": "@outputs('Compose_snapshot')",
+          "authentication": { "type": "ManagedServiceIdentity", "audience": "https://storage.azure.com/" }
+        }
+      }
+    },
+    "outputs": {}
+  },
+  "parameters": {}
+}
