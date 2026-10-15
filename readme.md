@@ -35,7 +35,7 @@ AI agents are starting to touch security data. The hard question isn't whether t
 | Follow instructions planted in a snapshot | Blocked by the guardrail | [23](evidence/23-negative-tests.png) |
 
 ## The finding
-Publishing gave the agent its own Entra identity with a federated credential and no secrets. But the OpenAPI tool still authenticated to storage as the shared Foundry resource identity, so storage logs alone can't tell agents apart. Per-agent attribution comes from matching Foundry traces to storage logs on file and time ([24](evidence/24-trace-to-storage-correlation.png)). See [docs/exception-register.md](docs/exception-register.md).
+Publishing gave the agent its own Entra identity with a federated credential and no secrets. But the OpenAPI tool still authenticated to storage as the shared Foundry resource identity, so storage logs alone can't tell agents apart. Per-agent attribution comes from matching Foundry traces to storage logs on file and time ([24](evidence/24-trace-to-storage-correlation.png)). See [docs/exception-register.md](docs/Exception-register.md).
 
 ## Repo contents
 | Path | What it is |
