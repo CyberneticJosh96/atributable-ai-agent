@@ -34,6 +34,20 @@ AI agents are starting to touch security data. The hard question isn't whether t
 | Follow instructions planted in a snapshot | Blocked by the guardrail | [23c](evidence/23c-injection-blocked.png) |
 | (detail) Where the injection was caught | The file was read (GetBlob 200), so the guardrail blocked it on the tool response, not before the read | [23d](evidence/23d-injection-file-read-log.png) |
 
+## Framework mapping
+| Framework | Item | How this project addresses it |
+| --- | --- | --- |
+| OWASP Top 10 for LLM Applications | LLM01 Prompt Injection | Indirect prompt injection guardrail; planted injection blocked ([23c](evidence/23c-injection-blocked.png)) |
+| OWASP Top 10 for LLM Applications | LLM06 Excessive Agency | GET-only tool and read-only role; write requests refused ([18](evidence/18-tool-spec.png), [23a](evidence/23a-write-refused.png)) |
+| OWASP Top 10 for LLM Applications | LLM02 Sensitive Information Disclosure | Sensitive data leakage guardrail; synthetic data disclosed ([05b](evidence/05b-guardrail-sensitive-data.png), [21b](evidence/21b-synthetic-disclosed.png)) |
+| Zero Trust | Verify explicitly | API keys disabled; every call authenticates with an Entra identity ([04](evidence/04-foundry-key-auth-disabled.png)) |
+| Zero Trust | Least privilege | Container-scoped roles; three scoped Graph permissions ([11a](evidence/11a-collector-storage-role.png), [12](evidence/12-graph-permissions.png)) |
+| Zero Trust | Assume breach | Immutable storage and identity-attributed logs ([08](evidence/08-immutable-overwrite-blocked.png), [15](evidence/15-attribution-kql.png)) |
+| NIST AI RMF | Govern | Exception register with documented risk acceptance ([docs](docs/Exception-register.md)) |
+| NIST AI RMF | Measure | Negative tests for access, writes, scope, and injection ([agent/tests.md](agent/tests.md)) |
+| NIST AI RMF | Manage | Identified the shared-identity attribution gap and documented the mitigation |
+
+
 ## The finding
 Publishing gave the agent its own Entra identity with a federated credential and no secrets. But the OpenAPI tool still authenticated to storage as the shared Foundry resource identity, so storage logs alone can't tell agents apart. Per-agent attribution comes from matching Foundry traces to storage logs on file and time ([24a](evidence/24a-storage-read-log.png), [24b](evidence/24b-trace-tool-output.png)). See [docs/Exception-register.md](docs/Exception-register.md).
 
