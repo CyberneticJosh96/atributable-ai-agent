@@ -59,7 +59,7 @@ Publishing gave the agent its own Entra identity with a federated credential and
 - **Turn on logging before testing controls,** or the evidence doesn't exist.
 - **Tracing turns telemetry into a data store.** Traces captured full tool results, so Application Insights needs the same access control as the data.
 
-Full list: [docs/lessons-learned.md](docs/lessons-learned.md)
+Full list: [docs/lessons-learned.md](docs/Lessons-Learned.md)
 
 ## Attribution
 See [ATTRIBUTION.md](ATTRIBUTION.md). Planning and documentation were assisted by Claude (Anthropic); all configuration, testing, and verification were done by me.
