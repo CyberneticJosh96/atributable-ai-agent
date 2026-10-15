@@ -1,9 +1,8 @@
 # Attributable AI Agent
 
-An AI agent on Microsoft Foundry that answers security questions from tamper proof data, holds no secrets, can't write anything, and leaves a trail tying every read back to it. Built in a personal Azure trial.
+An AI agent on Microsoft Foundry that answers security questions from tamper-proof data, holds no secrets, can't write anything, and leaves a trail tying every read back to it. Built in a personal Azure trial.
 
 <img width="1520" height="784" alt="architecture" src="https://github.com/user-attachments/assets/cdef7af1-3dc0-4735-af29-388361302c29" />
-
 
 ## The problem
 AI agents are starting to touch security data. The hard question isn't whether they answer well; it's whose identity acted, what it was allowed to do, and whether anyone can prove it afterwards.
@@ -17,25 +16,26 @@ AI agents are starting to touch security data. The hard question isn't whether t
 ## Security controls
 | Control | Why | Evidence |
 | --- | --- | --- |
-| Managed identity collector, container-scoped write | No stored credentials; can't reach anything else | [10](evidence/10-collector-identity.png), [11](evidence/11-collector-roles.txt) |
+| Managed identity collector, container-scoped write | No stored credentials; can't reach anything else | [10](evidence/10-collector-identity.png), [11a](evidence/11a-collector-storage-role.png) |
 | Three scoped Graph read permissions | Least privilege over Directory.Read.All | [12](evidence/12-graph-permissions.png) |
-| Immutable snapshots, shared keys off | Tamper-proof, identity-only access | [08](evidence/08-immutable-overwrite-blocked.png), [09](evidence/09-immutable-delete-blocked.png) |
-| GET-only agent tool, Reader role on one container | The agent can't request or perform a write | [18](evidence/18-tool-spec.png), [20](evidence/20-agent-reader-role.txt) |
-| Agent identity with federated credential, no secrets | Per-agent non-human identity | [22](evidence/22-agent-identity-blueprint.png) |
-| Prompt injection guardrail | Blocks instructions hidden in data | [05](evidence/05-guardrail-settings.png) |
-| Foundry API keys disabled; tracing through a managed identity | Every call identity-based and recorded | [04](evidence/04-foundry-key-auth-disabled.txt), [06](evidence/06-tracing-managed-identity.png) |
-| Azure Policy, budget, MFA | Governance enforced | [01](evidence/01-security-defaults.png), [03](evidence/03-policy-assignments.png) |
+| Immutable snapshots, shared keys off | Tamper-proof, identity-only access | [07c](evidence/07c-immutability-policy.png), [08](evidence/08-immutable-overwrite-blocked.png), [09](evidence/09-immutable-delete-blocked.png) |
+| GET-only agent tool, read access to one container | The agent can't request or perform a write | [18](evidence/18-tool-spec.png), [19](evidence/19-agent-denied-403.png) |
+| Agent identity with federated credential, no secrets | Per-agent non-human identity | [22a](evidence/22a-agent-identity-created.png), [22b](evidence/22b-blueprint-federated-no-secrets.png) |
+| Prompt injection guardrail | Blocks instructions hidden in data | [05a](evidence/05a-guardrail-controls.png) |
+| Foundry API keys disabled; tracing through a managed identity | Every call identity-based and recorded | [04](evidence/04-foundry-key-auth-disabled.png), [06a](evidence/06a-tracing-managed-identity.png) |
+| Azure Policy, budget, MFA | Governance enforced | [01](evidence/01-security-defaults.png), [02](evidence/02-budget-alerts.png), [03](evidence/03-policy-assignments.png) |
 
 ## What the agent can't do
 | Test | Result | Evidence |
 | --- | --- | --- |
 | Read before being granted access | Denied, 403, logged | [19](evidence/19-agent-denied-403.png) |
-| Delete a file, change a value | Refused; no write path exists | [23](evidence/23-negative-tests.png) |
-| Answer beyond the data | "That isn't in the snapshot data" | [23](evidence/23-negative-tests.png) |
-| Follow instructions planted in a snapshot | Blocked by the guardrail | [23](evidence/23-negative-tests.png) |
+| Delete a file, change a value | Refused; no write path exists | [23a](evidence/23a-write-refused.png) |
+| Answer beyond the data | "That isn't in the snapshot data" | [23b](evidence/23b-out-of-scope.png) |
+| Follow instructions planted in a snapshot | Blocked by the guardrail | [23c](evidence/23c-injection-blocked.png) |
+| (detail) Where the injection was caught | The file was read (GetBlob 200), so the guardrail blocked it on the tool response, not before the read | [23d](evidence/23d-injection-file-read-log.png) |
 
 ## The finding
-Publishing gave the agent its own Entra identity with a federated credential and no secrets. But the OpenAPI tool still authenticated to storage as the shared Foundry resource identity, so storage logs alone can't tell agents apart. Per-agent attribution comes from matching Foundry traces to storage logs on file and time ([24](evidence/24-trace-to-storage-correlation.png)). See [docs/exception-register.md](docs/Exception-register.md).
+Publishing gave the agent its own Entra identity with a federated credential and no secrets. But the OpenAPI tool still authenticated to storage as the shared Foundry resource identity, so storage logs alone can't tell agents apart. Per-agent attribution comes from matching Foundry traces to storage logs on file and time ([24a](evidence/24a-storage-read-log.png), [24b](evidence/24b-trace-tool-output.png)). See [docs/Exception-register.md](docs/Exception-register.md).
 
 ## Repo contents
 | Path | What it is |
@@ -45,8 +45,8 @@ Publishing gave the agent its own Entra identity with a federated credential and
 | `scripts/` | CLI used to grant permissions and harden Foundry |
 | `queries/attribution.kql` | The queries behind the attribution evidence |
 | `data/` | Synthetic data and the prompt injection test file |
-| `docs/` | Lessons learned, exception register, architecture |
-| `evidence/` | Sanitized screenshots and command output |
+| `docs/` | Lessons learned, exception register |
+| `evidence/` | Sanitized screenshots, indexed in [evidence/README.md](evidence/README.md) |
 
 ## Limitations
 - Personal trial tenant; endpoint and vulnerability data is synthetic and labeled.
@@ -55,11 +55,11 @@ Publishing gave the agent its own Entra identity with a federated credential and
 
 ## Lessons learned
 - **An agent identity existing doesn't mean every tool uses it.** Check which identity actually reaches your data.
-- **Verify scope after every role assignment.** A portal page said "This resource," and a role landed on the wrong scope; `az role assignment list` caught it.
+- **Verify scope after every role assignment.** A portal page said "This resource," and a role landed on the wrong scope; `az role assignment list` caught it ([11b](evidence/11b-security-reader-wrong-scope.png) → [11c](evidence/11c-security-reader-scope-fixed.png)).
 - **Turn on logging before testing controls,** or the evidence doesn't exist.
 - **Tracing turns telemetry into a data store.** Traces captured full tool results, so Application Insights needs the same access control as the data.
 
-Full list: [docs/lessons-learned.md](docs/Lessons-Learned.md)
+Full list: [docs/Lessons-Learned.md](docs/Lessons-Learned.md)
 
 ## Attribution
 See [ATTRIBUTION.md](ATTRIBUTION.md). Planning and documentation were assisted by Claude (Anthropic); all configuration, testing, and verification were done by me.
