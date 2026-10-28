@@ -4,6 +4,15 @@ An AI agent on Microsoft Foundry that answers security questions from tamper-pro
 
 <img width="1520" height="784" alt="architecture" src="https://github.com/user-attachments/assets/cdef7af1-3dc0-4735-af29-388361302c29" />
 
+## Project parts
+
+| Part | What it shows | Write-up |
+| --- | --- | --- |
+| **1. Attributable agent** | A Foundry agent with its own Entra identity, reading tamper-proof data through a GET-only tool. Finding: the tool authenticated as the shared Foundry identity, so attribution needed trace and storage log correlation. | This page |
+| **2. AI gateway** | APIM in front of the model: certificate based Entra tokens, `validate-jwt` with audience and role checks, per identity rate and token limits, keyless managed identity to Foundry, and logs that record why every call was allowed or denied. | [docs/part2-ai-gateway.md](docs/part2-ai-gateway.md) |
+
+**Part 2 in one line:** the gateway sends the same 401 to every rejected caller, but the logs record exactly why (`TokenNotPresent`, `TokenInvalidAudience`, `OpenAITokenLimitExceeded`) and which verified app made every allowed call.
+
 ## The problem
 AI agents are starting to touch security data. The hard question isn't whether they answer well; it's whose identity acted, what it was allowed to do, and whether anyone can prove it afterwards.
 
@@ -40,13 +49,14 @@ AI agents are starting to touch security data. The hard question isn't whether t
 | OWASP Top 10 for LLM Applications | LLM01 Prompt Injection | Indirect prompt injection guardrail; planted injection blocked ([23c](evidence/23c-injection-blocked.png)) |
 | OWASP Top 10 for LLM Applications | LLM06 Excessive Agency | GET-only tool and read-only role; write requests refused ([18](evidence/18-tool-spec.png), [23a](evidence/23a-write-refused.png)) |
 | OWASP Top 10 for LLM Applications | LLM02 Sensitive Information Disclosure | Sensitive data leakage guardrail; synthetic data disclosed ([05b](evidence/05b-guardrail-sensitive-data.png), [21b](evidence/21b-synthetic-disclosed.png)) |
-| Zero Trust | Verify explicitly | API keys disabled; every call authenticates with an Entra identity ([04](evidence/04-foundry-key-auth-disabled.png)) |
+| Zero Trust | Verify explicitly | API keys disabled; every call authenticates with an Entra identity ([04](evidence/04-foundry-key-auth-disabled.png)) | Part 2 closes this gap at the gateway: every call is attributed to a verified app identity in one log table ([docs/part2-ai-gateway.md](docs/part2-ai-gateway.md)).
 | Zero Trust | Least privilege | Container-scoped roles; three scoped Graph permissions ([11a](evidence/11a-collector-storage-role.png), [12](evidence/12-graph-permissions.png)) |
 | Zero Trust | Assume breach | Immutable storage and identity-attributed logs ([08](evidence/08-immutable-overwrite-blocked.png), [15](evidence/15-attribution-kql.png)) |
 | NIST AI RMF | Govern | Exception register with documented risk acceptance ([docs](docs/Exception-register.md)) |
 | NIST AI RMF | Measure | Negative tests for access, writes, scope, and injection ([agent/tests.md](agent/tests.md)) |
 | NIST AI RMF | Manage | Identified the shared-identity attribution gap and documented the mitigation |
-
+| `policies/` | Part 2 APIM inbound policy (IDs replaced with placeholders) |
+| `images/part2/` | Part 2 sanitized screenshots |
 
 ## The finding
 Publishing gave the agent its own Entra identity with a federated credential and no secrets. But the OpenAPI tool still authenticated to storage as the shared Foundry resource identity, so storage logs alone can't tell agents apart. Per-agent attribution comes from matching Foundry traces to storage logs on file and time ([24a](evidence/24a-storage-read-log.png), [24b](evidence/24b-trace-tool-output.png)). See [docs/Exception-register.md](docs/Exception-register.md).
@@ -56,8 +66,7 @@ Publishing gave the agent its own Entra identity with a federated credential and
 | --- | --- |
 | `collector/workflow.json` | Logic App definition (managed identity auth throughout) |
 | `agent/` | Agent instructions, GET-only tool spec, tests and results |
-| `scripts/` | CLI used to grant permissions and harden Foundry |
-| `queries/attribution.kql` | The queries behind the attribution evidence |
+| `scripts/` | CLI used to grant permissions and harden Foundry; Part 2 token script and test runner || `queries/attribution.kql` | The queries behind the attribution evidence |
 | `data/` | Synthetic data and the prompt injection test file |
 | `docs/` | Lessons learned, exception register |
 | `evidence/` | Sanitized screenshots, indexed in [evidence/README.md](evidence/README.md) |
