@@ -8,7 +8,7 @@ An AI agent on Microsoft Foundry that answers security questions from tamper-pro
 
 | Part | What it shows | Write-up |
 | --- | --- | --- |
-| **1. Attributable agent** | A Foundry agent with its own Entra identity, reading tamper-proof data through a GET-only tool. Finding: the tool authenticated as the shared Foundry identity, so attribution needed trace and storage log correlation. | This page |
+| **1. Attributable agent** | A Foundry agent with its own Entra identity, reading tamper proof data through a GET-only tool. Finding: the tool authenticated as the shared Foundry identity, so attribution needed trace and storage log correlation. | This page |
 | **2. AI gateway** | APIM in front of the model: certificate based Entra tokens, `validate-jwt` with audience and role checks, per identity rate and token limits, keyless managed identity to Foundry, and logs that record why every call was allowed or denied. | [docs/part2-ai-gateway.md](docs/part2-ai-gateway.md) |
 
 **Part 2 in one line:** the gateway sends the same 401 to every rejected caller, but the logs record exactly why (`TokenNotPresent`, `TokenInvalidAudience`, `OpenAITokenLimitExceeded`) and which verified app made every allowed call.
