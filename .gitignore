@@ -7,3 +7,18 @@ local.settings.json
 *.key
 evidence/raw/
 .DS_Store
+# Part 2: credentials and tokens
+*.key
+*.pem
+*.pfx
+*.crt
+token*.txt
+good-token.txt
+wrong-aud-token.txt
+
+# Python
+.venv/
+__pycache__/
+
+# macOS
+.DS_Store
