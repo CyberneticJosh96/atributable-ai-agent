@@ -1,0 +1,40 @@
+<!-- APIM inbound policy for the Foundry model API (Part 2).
+     Placeholders: {{tenant-id}}, {{gateway-api-client-id}}, {{backend-id}} -->
+<policies>
+    <inbound>
+        <base />
+        <!-- 1. Authenticate and authorize: valid Entra token for this API with the Gateway.invoke role -->
+        <validate-jwt header-name="Authorization" output-token-variable-name="jwt" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized: missing or invalid token" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
+            <openid-config url="https://login.microsoftonline.com/{{tenant-id}}/.well-known/openid-configuration" />
+            <audiences>
+                <audience>api://{{gateway-api-client-id}}</audience>
+            </audiences>
+            <issuers>
+                <issuer>https://sts.windows.net/{{tenant-id}}/</issuer>
+            </issuers>
+            <required-claims>
+                <claim name="roles" match="any">
+                    <value>Gateway.invoke</value>
+                </claim>
+            </required-claims>
+        </validate-jwt>
+        <!-- 2. Attribute: tag the request log with the verified caller (only runs after validation) -->
+        <trace source="caller-identity" severity="information">
+            <message>@("appid=" + ((Jwt)context.Variables["jwt"]).Claims.GetValueOrDefault("appid", "unknown"))</message>
+        </trace>
+        <!-- 3. Limit per verified identity: requests and model tokens -->
+        <rate-limit-by-key calls="5" renewal-period="60" counter-key="@(((Jwt)context.Variables[&quot;jwt&quot;]).Claims.GetValueOrDefault(&quot;appid&quot;, &quot;unknown&quot;))" />
+        <llm-token-limit tokens-per-minute="300" estimate-prompt-tokens="false" counter-key="@(((Jwt)context.Variables[&quot;jwt&quot;]).Claims.GetValueOrDefault(&quot;appid&quot;, &quot;unknown&quot;))" remaining-tokens-header-name="x-remaining-tokens" />
+        <!-- 4. Route to Foundry. The backend authenticates with APIM's system-assigned managed identity. -->
+        <set-backend-service id="apim-generated-policy" backend-id="{{backend-id}}" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
